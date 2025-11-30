@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* --- Premium custom CSS (animations + components) --- */
+
+@keyframes pageFade { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: translateY(0);} }
+.animate-pageFade { animation: pageFade 0.45s ease-out forwards; }
+
+.loader-shimmer {
+  width: 100%;
+  height: 12px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,255,255,0.22), rgba(255,255,255,0.06));
+  background-size: 200% 100%;
+  animation: shimmerMove 1s linear infinite;
+}
+@keyframes shimmerMove { 0% { background-position: 0% 0%; } 100% { background-position: 200% 0%; } }
+
+.glass-card { backdrop-filter: blur(12px); background: rgba(255,255,255,0.03); }
+.border-gradient { border:1px solid transparent; background: linear-gradient(#000,#000) padding-box, linear-gradient(90deg,#facc15,#fbbf24) border-box; }
+
+.input-premium { padding: 10px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); color: inherit; outline: none; }
+.input-premium:focus { border-color: rgba(250, 204, 21, 0.9); background: rgba(255,255,255,0.05); }
+
+.label-premium { color:#e5e5e5; font-weight:600; }
+
+.btn-gold {
+  background: linear-gradient(90deg,#facc15,#fbbf24);
+  color:#000;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-weight:700;
+  box-shadow: 0 10px 30px rgba(251,191,36,0.12);
+}
+.btn-gold:hover { transform: translateY(-2px); }
+
+.btn-outline { background: transparent; border:1px solid rgba(255,255,255,0.06); padding: 8px 12px; border-radius:8px; }
+
+.bg-white\/8 { background: rgba(255,255,255,0.08); }
+.text-white\/20 { color: rgba(255,255,255,0.20); }
+
+@media (max-width: 1024px) {
+  .glass-card { padding: 16px; }
+}
+/* Loader shimmer effect */
+.loader-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.1) 0%,
+    rgba(255,255,255,0.3) 50%,
+    rgba(255,255,255,0.1) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}

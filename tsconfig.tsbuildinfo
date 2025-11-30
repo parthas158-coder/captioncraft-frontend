@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/authprovider.jsx","./src/dashboard.tsx","./src/login.jsx","./src/protectedroute.jsx","./src/signup.jsx","./src/firebase.js","./src/loader.tsx","./src/main.tsx"],"version":"5.9.3"}
