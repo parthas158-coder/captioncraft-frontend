@@ -79,32 +79,31 @@ export default function Dashboard() {
   setLoading(true);
 
   try {
-    let arr: CaptionResult[] = [];
+    const response = await fetch(`${BACKEND_URL}/generate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        topic,
+        tone,
+        styles: stylesToGenerate,
+      }),
+    });
 
-    try {
-      const response = await fetch(`${BACKEND_URL}/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          topic,
-          tone,
-          styles: stylesToGenerate,
-        }),
-      });
+    const data = await response.json();
 
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error || "Backend failed");
-      }
-
-      arr = data.captions;
-    } catch (err) {
-      console.error("Backend error → fallback:", err);
-      arr = stylesToGenerate.map((s) => generateMockOne(topic, tone, s));
+    if (!data.success) {
+      alert("Backend error: " + data.error);
+      setLoading(false);
+      return;
     }
 
-    setResults(arr);
+    // AI-generated captions
+    setResults(data.captions);
+  } catch (err) {
+    console.error("Error:", err);
+    alert("Failed to connect to backend.");
   } finally {
     setLoading(false);
   }
