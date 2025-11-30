@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-const LOGO_SRC = "/logo.png";
+const LOGO_SRC = "/logo.png"; // public/logo.png
 
 type CaptionResult = {
   variant?: string;
@@ -22,11 +22,14 @@ export default function Dashboard() {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [stylesToGenerate] = useState<string[]>(["Friendly", "Professional", "Funny"]);
 
-  // Load history + theme
+  // refs for navigation
+  const mainRef = useRef<HTMLElement | null>(null);
+  const formRef = useRef<HTMLDivElement | null>(null);
+
+  // Load saved history + theme
   useEffect(() => {
     const raw = localStorage.getItem("captioncraft_history_v4");
     if (raw) setHistory(JSON.parse(raw));
-
     const t = localStorage.getItem("captioncraft_theme_v1") as "dark" | "light" | null;
     if (t) setTheme(t);
   }, []);
@@ -39,20 +42,19 @@ export default function Dashboard() {
     localStorage.setItem("captioncraft_theme_v1", theme);
   }, [theme]);
 
-  // Hashtag generator
+  // Simple hashtag generator
   const generateHashtags = (text: string, tone: string) => {
     const words = (text + " " + tone)
       .replace(/[^\w\s]/g, "")
       .split(/\s+/)
       .filter((w) => w.length > 3)
       .slice(0, 6);
-
     return [...new Set(words.map((w) => `#${w.toLowerCase()}`))]
       .concat(["#captioncraft", "#ai"])
       .slice(0, 8);
   };
 
-  // Fallback generator
+  // Create caption (no animation)
   const generateMockOne = (topic: string, tone: string, variant?: string): CaptionResult => {
     const base = topic || "An inspiring moment";
     const vTone = variant || tone;
@@ -67,7 +69,7 @@ export default function Dashboard() {
     };
   };
 
-  // Generate captions
+  // Generate (currently uses mock if BACKEND_URL not called)
   const generateCaptions = async () => {
     if (!topic.trim()) {
       alert("Please enter a topic.");
@@ -79,32 +81,27 @@ export default function Dashboard() {
     try {
       let arr: CaptionResult[] = [];
 
-      // If backend exists → call it
       if (BACKEND_URL) {
-        try {
-          const res = await fetch(`${BACKEND_URL}/generate`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ topic, tone, styles: stylesToGenerate }),
-          });
+        // If you have a backend ready, uncomment and use this:
+        // const resp = await fetch(`${BACKEND_URL}/generate`, {
+        //   method: "POST",
+        //   headers: { "Content-Type": "application/json" },
+        //   body: JSON.stringify({ topic, tone, styles: stylesToGenerate }),
+        // });
+        // const json = await resp.json();
+        // if (!resp.ok) throw new Error(json?.error || "Backend error");
+        // arr = json.captions;
 
-          const data = await res.json();
-
-          if (data?.captions) {
-            arr = data.captions;
-          } else {
-            throw new Error("AI error");
-          }
-        } catch (e) {
-          console.log("Backend error → fallback:", e);
-          arr = stylesToGenerate.map((s) => generateMockOne(topic, tone, s));
-        }
+        // For now (without backend or to fall back), produce front-end mocks:
+        arr = stylesToGenerate.map((s) => generateMockOne(topic, tone, s));
       } else {
-        // No backend → use mock
         arr = stylesToGenerate.map((s) => generateMockOne(topic, tone, s));
       }
 
       setResults(arr);
+    } catch (err: any) {
+      console.error("Generate error:", err);
+      alert("Failed to generate captions. Check console for details.");
     } finally {
       setLoading(false);
     }
@@ -135,49 +132,70 @@ export default function Dashboard() {
   };
 
   const downloadAll = (item: CaptionResult) => {
-    downloadTxt(
-      [item.short, item.medium, item.long].join("\n\n"),
-      `caption-${item.timestamp}.txt`
-    );
+    downloadTxt([item.short, item.medium, item.long].join("\n\n"), `caption-${item.timestamp}.txt`);
   };
 
   const exportHistory = () => {
     downloadTxt(JSON.stringify(history, null, 2), "history.json");
   };
 
-  return (
-    <div className={theme === "dark" ? "min-h-screen bg-black text-white" : "min-h-screen bg-gray-50 text-gray-900"}>
-      <div className="flex min-h-screen">
+  // Navigation handlers
+  const goToDashboard = () => {
+    // Scroll to top/main area
+    if (mainRef.current) {
+      mainRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      // optional: set focus for accessibility
+      (mainRef.current.querySelector("h1") as HTMLElement | null)?.focus();
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
 
+  const goToCreate = () => {
+    if (formRef.current) {
+      formRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      const input = formRef.current.querySelector("input");
+      (input as HTMLInputElement | null)?.focus();
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  return (
+    <div
+      id="app-root"
+      className={theme === "dark" ? "min-h-screen bg-black text-white" : "min-h-screen bg-gray-50 text-gray-900"}
+    >
+      <div className="flex min-h-screen">
         {/* Sidebar */}
         <aside className="w-64 p-4 bg-black/40 backdrop-blur-xl border-r border-white/10 flex flex-col">
-
           <div className="flex items-center gap-3 mb-6">
-            <img src={LOGO_SRC} className="w-12 h-12 rounded" />
+            <img src={LOGO_SRC} className="w-12 h-12 rounded" alt="logo" />
             <div>
               <div className="font-bold text-lg">CaptionCraft</div>
               <div className="text-xs text-gray-300">Studio</div>
             </div>
           </div>
 
-          {/* Sidebar navigation with smooth scroll */}
-          <button
-            onClick={() => {
-              document.getElementById("dashboard-top")?.scrollIntoView({ behavior: "smooth" });
-            }}
-            className="p-3 hover:bg-white/5 rounded-lg"
-          >
-            🏠 Dashboard
-          </button>
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={goToDashboard}
+              className="p-3 hover:bg-white/5 rounded-lg text-left flex items-center gap-3"
+              aria-label="Go to Dashboard"
+            >
+              <span style={{ fontSize: 18 }}>🏠</span>
+              <span className="text-lg font-medium">Dashboard</span>
+            </button>
 
-          <button
-            onClick={() => {
-              document.getElementById("create-panel")?.scrollIntoView({ behavior: "smooth" });
-            }}
-            className="p-3 hover:bg-white/5 rounded-lg"
-          >
-            ✍️ Create
-          </button>
+            <button
+              onClick={goToCreate}
+              className="p-3 hover:bg-white/5 rounded-lg text-left flex items-center gap-3"
+              aria-label="Go to Create"
+            >
+              <span style={{ fontSize: 18 }}>✍️</span>
+              <span className="text-lg font-medium">Create</span>
+            </button>
+          </div>
 
           <div className="mt-6 text-sm">
             <div className="text-gray-300">Saved</div>
@@ -192,16 +210,17 @@ export default function Dashboard() {
           </button>
         </aside>
 
-        {/* Main Area */}
-        <main id="dashboard-top" className="flex-1 p-8 overflow-auto">
-          <h1 className="text-3xl font-bold mb-2">AI Caption Generator</h1>
+        {/* Main Panel */}
+        <main ref={mainRef} id="main-panel" className="flex-1 p-8 overflow-auto">
+          <h1 tabIndex={-1} className="text-3xl font-bold mb-2">
+            AI Caption Generator
+          </h1>
           <p className="text-gray-400 mb-6">Create captions instantly</p>
 
           <div className="grid grid-cols-12 gap-8">
-
-            {/* CREATE PANEL */}
-            <div id="create-panel" className="col-span-12 lg:col-span-4">
-              <div className="p-6 bg-white/5 rounded-xl border border-white/10">
+            {/* Left Panel (form) */}
+            <div className="col-span-12 lg:col-span-4">
+              <div ref={formRef} id="create-form" className="p-6 bg-white/5 rounded-xl border border-white/10">
                 <label className="text-sm">Topic</label>
                 <input
                   value={topic}
@@ -241,24 +260,16 @@ export default function Dashboard() {
                 </div>
 
                 <div className="max-h-56 overflow-auto space-y-3">
-                  {history.length === 0 && (
-                    <div className="text-gray-400 text-sm">No saved captions.</div>
-                  )}
+                  {history.length === 0 && <div className="text-gray-400 text-sm">No saved captions.</div>}
 
                   {history.map((h) => (
                     <div key={h.timestamp} className="p-3 bg-white/10 rounded">
                       <div className="text-sm">{h.medium}</div>
                       <div className="flex gap-2 mt-3">
-                        <button
-                          onClick={() => deleteHistoryItem(h.timestamp)}
-                          className="text-red-400 text-xs"
-                        >
+                        <button onClick={() => deleteHistoryItem(h.timestamp)} className="text-red-400 text-xs">
                           Delete
                         </button>
-                        <button
-                          onClick={() => downloadAll(h)}
-                          className="text-gray-300 text-xs"
-                        >
+                        <button onClick={() => downloadAll(h)} className="text-gray-300 text-xs">
                           Download
                         </button>
                       </div>
@@ -268,19 +279,18 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* RESULTS PANEL */}
+            {/* Output Panel */}
             <div className="col-span-12 lg:col-span-8">
               <div className="p-6 bg-white/5 rounded-xl border border-white/10">
                 <h3 className="font-semibold mb-4">Generated Captions</h3>
 
-                {!results && (
-                  <div className="text-gray-400">No captions yet. Generate something!</div>
-                )}
+                {!results && <div className="text-gray-400">No captions yet. Generate something!</div>}
 
                 {results &&
                   results.map((res) => (
                     <div key={res.timestamp} className="mb-6 p-4 bg-white/10 rounded">
                       <div className="font-semibold">{res.variant}</div>
+
                       <div className="mt-3 text-sm">{res.short}</div>
                       <div className="mt-3 text-sm">{res.medium}</div>
                       <div className="mt-3 text-sm">{res.long}</div>
@@ -308,7 +318,6 @@ export default function Dashboard() {
                   ))}
               </div>
             </div>
-
           </div>
         </main>
       </div>
