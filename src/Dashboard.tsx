@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-const LOGO_SRC = "/logo.png"; // You already placed it in public/logo.png
+const LOGO_SRC = "/logo.png";
 
 type CaptionResult = {
   variant?: string;
@@ -11,7 +11,7 @@ type CaptionResult = {
   timestamp?: number;
 };
 
-const BACKEND_URL ="https://captioncraft-backend-1.onrender.com";
+const BACKEND_URL = "https://captioncraft-backend-1.onrender.com";
 
 export default function Dashboard() {
   const [topic, setTopic] = useState("");
@@ -20,17 +20,13 @@ export default function Dashboard() {
   const [results, setResults] = useState<CaptionResult[] | null>(null);
   const [history, setHistory] = useState<CaptionResult[]>([]);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
-  const [stylesToGenerate] = useState<string[]>([
+  const [stylesToGenerate] = useState<string[]>(["Friendly", "Professional", "Funny"]);
 
-    "Friendly",
-    "Professional",
-    "Funny",
-  ]);
-
-  // Load saved history + theme
+  // Load history + theme
   useEffect(() => {
     const raw = localStorage.getItem("captioncraft_history_v4");
     if (raw) setHistory(JSON.parse(raw));
+
     const t = localStorage.getItem("captioncraft_theme_v1") as "dark" | "light" | null;
     if (t) setTheme(t);
   }, []);
@@ -43,19 +39,20 @@ export default function Dashboard() {
     localStorage.setItem("captioncraft_theme_v1", theme);
   }, [theme]);
 
-  // Simple hashtag generator
+  // Hashtag generator
   const generateHashtags = (text: string, tone: string) => {
     const words = (text + " " + tone)
       .replace(/[^\w\s]/g, "")
       .split(/\s+/)
       .filter((w) => w.length > 3)
       .slice(0, 6);
+
     return [...new Set(words.map((w) => `#${w.toLowerCase()}`))]
       .concat(["#captioncraft", "#ai"])
       .slice(0, 8);
   };
 
-  // Create caption (no animation)
+  // Fallback generator
   const generateMockOne = (topic: string, tone: string, variant?: string): CaptionResult => {
     const base = topic || "An inspiring moment";
     const vTone = variant || tone;
@@ -70,45 +67,48 @@ export default function Dashboard() {
     };
   };
 
+  // Generate captions
   const generateCaptions = async () => {
-  if (!topic.trim()) {
-    alert("Please enter a topic.");
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-    const response = await fetch(`${BACKEND_URL}/generate`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        topic,
-        tone,
-        styles: stylesToGenerate,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!data.success) {
-      alert("Backend error: " + data.error);
-      setLoading(false);
+    if (!topic.trim()) {
+      alert("Please enter a topic.");
       return;
     }
 
-    // AI-generated captions
-    setResults(data.captions);
-  } catch (err) {
-    console.error("Error:", err);
-    alert("Failed to connect to backend.");
-  } finally {
-    setLoading(false);
-  }
-};
+    setLoading(true);
 
+    try {
+      let arr: CaptionResult[] = [];
+
+      // If backend exists → call it
+      if (BACKEND_URL) {
+        try {
+          const res = await fetch(`${BACKEND_URL}/generate`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ topic, tone, styles: stylesToGenerate }),
+          });
+
+          const data = await res.json();
+
+          if (data?.captions) {
+            arr = data.captions;
+          } else {
+            throw new Error("AI error");
+          }
+        } catch (e) {
+          console.log("Backend error → fallback:", e);
+          arr = stylesToGenerate.map((s) => generateMockOne(topic, tone, s));
+        }
+      } else {
+        // No backend → use mock
+        arr = stylesToGenerate.map((s) => generateMockOne(topic, tone, s));
+      }
+
+      setResults(arr);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const saveToHistory = (item: CaptionResult) => {
     const copy = { ...item, timestamp: Date.now() };
@@ -146,16 +146,12 @@ export default function Dashboard() {
   };
 
   return (
-    <div
-      className={
-        theme === "dark"
-          ? "min-h-screen bg-black text-white"
-          : "min-h-screen bg-gray-50 text-gray-900"
-      }
-    >
+    <div className={theme === "dark" ? "min-h-screen bg-black text-white" : "min-h-screen bg-gray-50 text-gray-900"}>
       <div className="flex min-h-screen">
+
         {/* Sidebar */}
         <aside className="w-64 p-4 bg-black/40 backdrop-blur-xl border-r border-white/10 flex flex-col">
+
           <div className="flex items-center gap-3 mb-6">
             <img src={LOGO_SRC} className="w-12 h-12 rounded" />
             <div>
@@ -164,10 +160,24 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <button className="p-3 hover:bg-white/5 rounded-lg">🏠 Dashboard</button>
-            <button className="p-3 hover:bg-white/5 rounded-lg">✍️ Create</button>
-          </div>
+          {/* Sidebar navigation with smooth scroll */}
+          <button
+            onClick={() => {
+              document.getElementById("dashboard-top")?.scrollIntoView({ behavior: "smooth" });
+            }}
+            className="p-3 hover:bg-white/5 rounded-lg"
+          >
+            🏠 Dashboard
+          </button>
+
+          <button
+            onClick={() => {
+              document.getElementById("create-panel")?.scrollIntoView({ behavior: "smooth" });
+            }}
+            className="p-3 hover:bg-white/5 rounded-lg"
+          >
+            ✍️ Create
+          </button>
 
           <div className="mt-6 text-sm">
             <div className="text-gray-300">Saved</div>
@@ -182,14 +192,15 @@ export default function Dashboard() {
           </button>
         </aside>
 
-        {/* Main Panel */}
-        <main className="flex-1 p-8 overflow-auto">
+        {/* Main Area */}
+        <main id="dashboard-top" className="flex-1 p-8 overflow-auto">
           <h1 className="text-3xl font-bold mb-2">AI Caption Generator</h1>
           <p className="text-gray-400 mb-6">Create captions instantly</p>
 
           <div className="grid grid-cols-12 gap-8">
-            {/* Left Panel */}
-            <div className="col-span-12 lg:col-span-4">
+
+            {/* CREATE PANEL */}
+            <div id="create-panel" className="col-span-12 lg:col-span-4">
               <div className="p-6 bg-white/5 rounded-xl border border-white/10">
                 <label className="text-sm">Topic</label>
                 <input
@@ -257,54 +268,39 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Output Panel */}
+            {/* RESULTS PANEL */}
             <div className="col-span-12 lg:col-span-8">
               <div className="p-6 bg-white/5 rounded-xl border border-white/10">
                 <h3 className="font-semibold mb-4">Generated Captions</h3>
 
                 {!results && (
-                  <div className="text-gray-400">
-                    No captions yet. Generate something!
-                  </div>
+                  <div className="text-gray-400">No captions yet. Generate something!</div>
                 )}
 
                 {results &&
                   results.map((res) => (
                     <div key={res.timestamp} className="mb-6 p-4 bg-white/10 rounded">
                       <div className="font-semibold">{res.variant}</div>
-
                       <div className="mt-3 text-sm">{res.short}</div>
                       <div className="mt-3 text-sm">{res.medium}</div>
                       <div className="mt-3 text-sm">{res.long}</div>
 
                       <div className="flex gap-2 flex-wrap mt-3">
                         {res.hashtags?.map((h, i) => (
-                          <span
-                            key={i}
-                            className="px-2 py-1 text-xs bg-white/20 rounded"
-                          >
+                          <span key={i} className="px-2 py-1 text-xs bg-white/20 rounded">
                             {h}
                           </span>
                         ))}
                       </div>
 
                       <div className="flex gap-3 mt-4">
-                        <button
-                          onClick={() => copyText(res.medium)}
-                          className="text-yellow-400"
-                        >
+                        <button onClick={() => copyText(res.medium)} className="text-yellow-400">
                           Copy
                         </button>
-                        <button
-                          onClick={() => downloadAll(res)}
-                          className="text-gray-300"
-                        >
+                        <button onClick={() => downloadAll(res)} className="text-gray-300">
                           Download
                         </button>
-                        <button
-                          onClick={() => saveToHistory(res)}
-                          className="text-gray-200"
-                        >
+                        <button onClick={() => saveToHistory(res)} className="text-gray-200">
                           Save
                         </button>
                       </div>
@@ -312,6 +308,7 @@ export default function Dashboard() {
                   ))}
               </div>
             </div>
+
           </div>
         </main>
       </div>
