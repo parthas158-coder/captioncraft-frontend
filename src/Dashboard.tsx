@@ -70,30 +70,46 @@ export default function Dashboard() {
     };
   };
 
-  // Generate
   const generateCaptions = async () => {
-    if (!topic.trim()) {
-      alert("Please enter a topic.");
-      return;
-    }
+  if (!topic.trim()) {
+    alert("Please enter a topic.");
+    return;
+  }
 
-    setLoading(true);
+  setLoading(true);
+
+  try {
+    let arr: CaptionResult[] = [];
 
     try {
-     let arr: CaptionResult[] = [];
+      const response = await fetch(`${BACKEND_URL}/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic,
+          tone,
+          styles: stylesToGenerate,
+        }),
+      });
 
-      if (BACKEND_URL) {
-        // backend call
-      } else {
-        // frontend mock
-        arr = stylesToGenerate.map((s) => generateMockOne(topic, tone, s));
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || "Backend failed");
       }
 
-      setResults(arr);
-    } finally {
-      setLoading(false);
+      arr = data.captions;
+    } catch (err) {
+      console.error("Backend error → fallback:", err);
+      arr = stylesToGenerate.map((s) => generateMockOne(topic, tone, s));
     }
-  };
+
+    setResults(arr);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const saveToHistory = (item: CaptionResult) => {
     const copy = { ...item, timestamp: Date.now() };
