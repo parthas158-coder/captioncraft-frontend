@@ -11,7 +11,7 @@ type CaptionResult = {
   timestamp?: number;
 };
 
-const BACKEND_URL ="https://captioncraft-backend-5hpp.onrender.com";
+const BACKEND_URL ="https://captioncraft-backend-1.onrender.com";
 
 export default function Dashboard() {
   const [topic, setTopic] = useState("");
